@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NORVIK — Acessórios Masculinos</title>
+<script src="https://sdk.mercadopago.com/js/v2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
   :root {
@@ -885,11 +886,10 @@ window.confirmOrder = async () => {
   } catch(e) { showToast('Erro ao realizar pedido. Tente novamente.'); }
 };
 
-function showPixModal(total, orderId) {
-  const pixKey  = 'caducarloseduardotorresmoises@gmail.com';
-  const pixCode = `00020126330014BR.GOV.BCB.PIX0111${pixKey}5204000053039865406${total.toFixed(2)}5802BR5906NORVIK6009SAO PAULO62070503***6304`;
+function showPixModal(total, orderId, pixCode) {
+  const code = pixCode || '00020126330014BR.GOV.BCB.PIX0111caducarloseduardotorresmoises@gmail.com5204000053039865406' + total.toFixed(2) + '5802BR5906NORVIK6009SAO PAULO62070503***6304';
   document.getElementById('pix-amount').textContent = `R$ ${total.toFixed(2)}`;
-  document.getElementById('pix-code').textContent   = pixCode;
+  document.getElementById('pix-code').textContent   = code;
   document.getElementById('pix-modal').classList.add('open');
 }
 
