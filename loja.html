@@ -189,7 +189,7 @@
   /* PAYMENT */
   .payment-section{margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.5rem;}
   .payment-title{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;}
-  .payment-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1.5rem;}
+  .payment-methods{display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-bottom:1.5rem;}
   .payment-method{border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;}
   .payment-method:hover,.payment-method.selected{border-color:var(--gold);background:rgba(201,169,110,0.05);}
   .payment-method-icon{font-size:1.5rem;margin-bottom:4px;}
@@ -278,7 +278,7 @@
 
   @media(max-width:768px){
     .detail-grid{grid-template-columns:1fr;}
-    .payment-methods{grid-template-columns:repeat(3,1fr);}
+    .payment-methods{grid-template-columns:repeat(2,1fr);}
   }
   @media(max-width:600px){
     .form-row,.form-row.three,.form-row.four{grid-template-columns:1fr;}
@@ -877,10 +877,6 @@ window.confirmOrder = async () => {
     });
     if (selectedPayment === 'pix') {
       showPixModal(total, currentOrderId);
-    } else if (selectedPayment === 'boleto') {
-      showToast('Boleto gerado! Válido por 3 dias úteis.');
-      cart=[]; saveCart(); goTo('success');
-      document.getElementById('success-order-id').textContent = `Pedido #${currentOrderId.slice(-6).toUpperCase()}`;
     } else {
       showToast('Redirecionando para o Mercado Pago...');
       cart=[]; saveCart(); goTo('success');
