@@ -877,14 +877,46 @@ window.confirmOrder = async () => {
       tracking: '', createdAt: Date.now()
     });
     if (selectedPayment === 'pix') {
-      showPixModal(total, currentOrderId);
+      await gerarPix(total, currentOrderId);
     } else {
-      showToast('Redirecionando para o Mercado Pago...');
-      cart=[]; saveCart(); goTo('success');
-      document.getElementById('success-order-id').textContent = `Pedido #${currentOrderId.slice(-6).toUpperCase()}`;
+      await gerarCartao(total, currentOrderId);
     }
-  } catch(e) { showToast('Erro ao realizar pedido. Tente novamente.'); }
+  } catch(e) { console.error(e); showToast('Erro ao realizar pedido.'); }
 };
+
+async function gerarPix(total, orderId) {
+  showToast('Gerando PIX...');
+  try {
+    const resp = await fetch('https://norvik-backend-production.up.railway.app/criar-pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ total, email: currentUser.email, orderId })
+    });
+    const data = await resp.json();
+    if (data.qr_code) {
+      showPixModal(total, orderId, data.qr_code);
+    } else {
+      showToast('Erro ao gerar PIX. Tente novamente.');
+    }
+  } catch(e) { showToast('Erro ao gerar PIX.'); }
+}
+
+async function gerarCartao(total, orderId) {
+  showToast('Gerando link de pagamento...');
+  try {
+    const resp = await fetch('https://norvik-backend-production.up.railway.app/criar-pagamento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: cart.map(i => ({ title: i.name, quantity: i.qty, unit_price: parseFloat(i.price), currency_id: 'BRL' })),
+        email: currentUser.email, frete: selectedFrete, orderId
+      })
+    });
+    const data = await resp.json();
+    if (data.url) { cart=[]; saveCart(); window.location.href = data.url; }
+    else { showToast('Erro ao gerar pagamento.'); }
+  } catch(e) { showToast('Erro ao processar pagamento.'); }
+}
 
 function showPixModal(total, orderId, pixCode) {
   const code = pixCode || '00020126330014BR.GOV.BCB.PIX0111caducarloseduardotorresmoises@gmail.com5204000053039865406' + total.toFixed(2) + '5802BR5906NORVIK6009SAO PAULO62070503***6304';
