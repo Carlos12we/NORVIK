@@ -287,6 +287,19 @@
     .nav-user{display:none;}
     .hero{padding:4rem 1.5rem 3.5rem;}
   }
+
+  .card-form { margin-top: 1rem; }
+  .card-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .card-field-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .card-field label { display: block; font-size: 0.62rem; font-weight: 500; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .card-field input, .card-field select { width: 100%; padding: 10px 12px; background: var(--navy); border: 1px solid var(--border); font-size: 0.82rem; color: var(--white); outline: none; transition: border-color 0.2s; font-family: 'Montserrat',sans-serif; }
+  .card-field input:focus, .card-field select:focus { border-color: var(--gold); }
+  .card-field input::placeholder { color: var(--muted); }
+  .card-iframe-field { background: var(--navy); border: 1px solid var(--border); padding: 10px 12px; min-height: 38px; }
+  .card-iframe-field.focused { border-color: var(--gold); }
+  .card-error { color: #fca5a5; font-size: 0.7rem; margin-top: 6px; display: none; letter-spacing: 0.5px; }
+  .card-processing { text-align: center; padding: 1rem; font-size: 0.8rem; color: var(--gold); letter-spacing: 1px; display: none; }
+  .installments-select { width: 100%; padding: 10px 12px; background: var(--navy); border: 1px solid var(--border); color: var(--white); font-size: 0.82rem; font-family: 'Montserrat',sans-serif; outline: none; }
 </style>
 </head>
 <body>
@@ -551,6 +564,44 @@ const app      = initializeApp(firebaseConfig);
 const auth     = getAuth(app);
 const db       = getDatabase(app);
 const provider = new GoogleAuthProvider();
+
+// ===== MERCADO PAGO BRICKS / SECURE FIELDS =====
+const mp = new MercadoPago('APP_USR-454cce7c-763c-46b7-8bf4-50c8a43c7549', { locale: 'pt-BR' });
+let cardForm = null;
+let cardFormMounted = false;
+
+function mountCardForm() {
+  if (cardFormMounted) return;
+  cardFormMounted = true;
+
+  cardForm = mp.cardForm({
+    amount: String(getCheckoutTotal()),
+    iframe: true,
+    form: {
+      id: "card-form-internal",
+      cardNumber:    { id: "form-checkout__cardNumber",    placeholder: "0000 0000 0000 0000" },
+      expirationDate:{ id: "form-checkout__expirationDate",placeholder: "MM/AA" },
+      securityCode:  { id: "form-checkout__securityCode",  placeholder: "CVV" },
+      cardholderName:{ id: "form-checkout__cardholderName",placeholder: "Nome no cartão" },
+      issuer:        { id: "form-checkout__issuer",placeholder: "Banco emissor" },
+      installments:  { id: "form-checkout__installments",placeholder: "Parcelas" },
+      identificationType:  { id: "form-checkout__identificationType" },
+      identificationNumber:{ id: "form-checkout__identificationNumber",placeholder: "CPF" },
+    },
+    callbacks: {
+      onFormMounted: error => { if (error) console.warn('Form Mounted error:', error); },
+      onSubmit: event => { event.preventDefault(); },
+      onFetching: (resource) => {}
+    }
+  });
+}
+
+function getCheckoutTotal() {
+  const subtotal = cart.reduce((s,i) => s + i.price*i.qty, 0);
+  return selectedFrete ? (subtotal + selectedFrete.preco) : subtotal;
+}
+// ===== FIM MERCADO PAGO =====
+
 
 let currentUser   = null;
 let cart          = JSON.parse(localStorage.getItem('norvik_cart') || '[]');
@@ -839,6 +890,13 @@ window.selectPayment = (method, el) => {
   selectedPayment = method;
   document.querySelectorAll('.payment-method').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
+  const cardFormEl = document.getElementById('card-form');
+  if (method === 'cartao') {
+    cardFormEl.style.display = 'block';
+    setTimeout(() => mountCardForm(), 100);
+  } else {
+    cardFormEl.style.display = 'none';
+  }
 };
 
 // ---- CHECKOUT ----
@@ -902,20 +960,69 @@ async function gerarPix(total, orderId) {
 }
 
 async function gerarCartao(total, orderId) {
-  showToast('Gerando link de pagamento...');
+  const errorEl = document.getElementById('card-error');
+  const processingEl = document.getElementById('card-processing');
+  errorEl.style.display = 'none';
+
+  if (!cardForm) { showToast('Preencha os dados do cartão'); return; }
+
+  const data = cardForm.getCardFormData();
+  if (!data.token) {
+    errorEl.textContent = 'Verifique os dados do cartão e tente novamente.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  processingEl.style.display = 'block';
   try {
-    const resp = await fetch('https://norvik-backend-production.up.railway.app/criar-pagamento', {
+    const resp = await fetch('https://norvik-backend-production.up.railway.app/criar-pagamento-cartao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: cart.map(i => ({ title: i.name, quantity: i.qty, unit_price: parseFloat(i.price), currency_id: 'BRL' })),
-        email: currentUser.email, frete: selectedFrete, orderId
+        token: data.token,
+        issuer_id: data.issuerId,
+        payment_method_id: data.paymentMethodId,
+        installments: data.installments,
+        email: currentUser.email,
+        identificationType: data.identificationType,
+        identificationNumber: data.identificationNumber,
+        total,
+        orderId,
+        name: data.cardholderName
       })
     });
-    const data = await resp.json();
-    if (data.url) { cart=[]; saveCart(); window.location.href = data.url; }
-    else { showToast('Erro ao gerar pagamento.'); }
-  } catch(e) { showToast('Erro ao processar pagamento.'); }
+    const result = await resp.json();
+    processingEl.style.display = 'none';
+
+    if (result.status === 'approved') {
+      await update(ref(db,'orders/'+orderId), { status: 'pago', mp_payment_id: result.id });
+      cart=[]; saveCart();
+      document.getElementById('success-order-id').textContent = `Pedido #${orderId.slice(-6).toUpperCase()}`;
+      goTo('success');
+      showToast('Pagamento aprovado! ✅');
+    } else if (result.status === 'in_process' || result.status === 'pending') {
+      cart=[]; saveCart();
+      document.getElementById('success-order-id').textContent = `Pedido #${orderId.slice(-6).toUpperCase()}`;
+      goTo('success');
+      showToast('Pagamento em análise.');
+    } else {
+      const mensagens = {
+        cc_rejected_insufficient_amount: 'Saldo insuficiente no cartão.',
+        cc_rejected_bad_filled_card_number: 'Número do cartão inválido.',
+        cc_rejected_bad_filled_security_code: 'CVV inválido.',
+        cc_rejected_bad_filled_date: 'Data de validade inválida.',
+        cc_rejected_call_for_authorize: 'Cartão requer autorização. Contate seu banco.',
+        cc_rejected_card_disabled: 'Cartão desabilitado. Contate seu banco.',
+        cc_rejected_high_risk: 'Pagamento recusado por segurança.'
+      };
+      errorEl.textContent = mensagens[result.status_detail] || 'Pagamento recusado. Verifique os dados ou tente outro cartão.';
+      errorEl.style.display = 'block';
+    }
+  } catch(e) {
+    processingEl.style.display = 'none';
+    errorEl.textContent = 'Erro de conexão. Tente novamente.';
+    errorEl.style.display = 'block';
+  }
 }
 
 function showPixModal(total, orderId, pixCode) {
