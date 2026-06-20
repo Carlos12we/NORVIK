@@ -921,9 +921,13 @@ window.closeModal = () => document.getElementById('checkout-modal').classList.re
 
 window.confirmOrder = async () => {
   if (!selectedFrete) { showToast('Calcule e selecione o frete antes de continuar'); return; }
-  closeModal();
   const subtotal = cart.reduce((s,i) => s + i.price*i.qty, 0);
   const total    = subtotal + selectedFrete.preco;
+
+  // Só fecha o modal de checkout para o PIX (que abre outro modal).
+  // Para cartão, o modal precisa continuar aberto pois o formulário está dentro dele.
+  if (selectedPayment === 'pix') closeModal();
+
   try {
     const orderRef = push(ref(db,'orders'));
     currentOrderId = orderRef.key;
