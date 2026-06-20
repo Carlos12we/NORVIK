@@ -507,6 +507,50 @@
         </div>
 
       </div>
+
+      <div class="card-form" id="card-form" style="display:none">
+        <form id="card-form-internal">
+          <div class="card-field">
+            <label>Número do cartão</label>
+            <div id="form-checkout__cardNumber" class="card-iframe-field"></div>
+          </div>
+          <div class="card-field-row">
+            <div class="card-field">
+              <label>Validade</label>
+              <div id="form-checkout__expirationDate" class="card-iframe-field"></div>
+            </div>
+            <div class="card-field">
+              <label>CVV</label>
+              <div id="form-checkout__securityCode" class="card-iframe-field"></div>
+            </div>
+          </div>
+          <div class="card-field">
+            <label>Nome no cartão</label>
+            <input type="text" id="form-checkout__cardholderName" placeholder="Nome impresso no cartão">
+          </div>
+          <div class="card-field-row">
+            <div class="card-field">
+              <label>Tipo de documento</label>
+              <select id="form-checkout__identificationType"></select>
+            </div>
+            <div class="card-field">
+              <label>CPF</label>
+              <input type="text" id="form-checkout__identificationNumber" placeholder="000.000.000-00">
+            </div>
+          </div>
+          <div class="card-field" style="display:none">
+            <label>Banco emissor</label>
+            <select id="form-checkout__issuer"></select>
+          </div>
+          <div class="card-field">
+            <label>Parcelas</label>
+            <select id="form-checkout__installments" class="installments-select"></select>
+          </div>
+          <div class="card-error" id="card-error"></div>
+          <div class="card-processing" id="card-processing">Processando pagamento...</div>
+        </form>
+      </div>
+
       <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:0.5rem">
         <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted);margin-bottom:6px"><span>Subtotal</span><span id="modal-subtotal"></span></div>
         <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted);margin-bottom:6px"><span>Frete</span><span id="modal-frete-val">—</span></div>
