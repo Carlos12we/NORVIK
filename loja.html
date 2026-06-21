@@ -613,6 +613,8 @@ const provider = new GoogleAuthProvider();
 const mp = new MercadoPago('APP_USR-454cce7c-763c-46b7-8bf4-50c8a43c7549', { locale: 'pt-BR' });
 let cardForm = null;
 let cardFormMounted = false;
+let pendingCardTotal = null;
+let pendingCardOrderId = null;
 
 function mountCardForm() {
   if (cardFormMounted) return;
@@ -623,9 +625,9 @@ function mountCardForm() {
     iframe: true,
     form: {
       id: "card-form-internal",
-      cardNumber:    { id: "form-checkout__cardNumber",    placeholder: "0000 0000 0000 0000" },
-      expirationDate:{ id: "form-checkout__expirationDate",placeholder: "MM/AA" },
-      securityCode:  { id: "form-checkout__securityCode",  placeholder: "CVV" },
+      cardNumber:    { id: "form-checkout__cardNumber",    placeholder: "0000 0000 0000 0000", style: { color: "#ffffff", "placeholder-color": "#6b7280" } },
+      expirationDate:{ id: "form-checkout__expirationDate",placeholder: "MM/AA", style: { color: "#ffffff", "placeholder-color": "#6b7280" } },
+      securityCode:  { id: "form-checkout__securityCode",  placeholder: "CVV", style: { color: "#ffffff", "placeholder-color": "#6b7280" } },
       cardholderName:{ id: "form-checkout__cardholderName",placeholder: "Nome no cartão" },
       issuer:        { id: "form-checkout__issuer",placeholder: "Banco emissor" },
       installments:  { id: "form-checkout__installments",placeholder: "Parcelas" },
@@ -634,7 +636,11 @@ function mountCardForm() {
     },
     callbacks: {
       onFormMounted: error => { if (error) console.warn('Form Mounted error:', error); },
-      onSubmit: event => { event.preventDefault(); },
+      onSubmit: event => {
+        event.preventDefault();
+        // Neste ponto o SDK já gerou o token do cartão — agora sim podemos enviar o pagamento.
+        gerarCartao(pendingCardTotal, pendingCardOrderId);
+      },
       onFetching: (resource) => {}
     }
   });
@@ -985,7 +991,13 @@ window.confirmOrder = async () => {
     if (selectedPayment === 'pix') {
       await gerarPix(total, currentOrderId);
     } else {
-      await gerarCartao(total, currentOrderId);
+      if (!cardForm) { showToast('Preencha os dados do cartão'); return; }
+      pendingCardTotal   = total;
+      pendingCardOrderId = currentOrderId;
+      // Dispara o submit interno do form do cartão: o SDK do Mercado Pago
+      // intercepta esse evento, gera o token e só então o callback onSubmit
+      // (que chama gerarCartao) é executado.
+      cardForm.submit();
     }
   } catch(e) { console.error(e); showToast('Erro ao realizar pedido.'); }
 };
